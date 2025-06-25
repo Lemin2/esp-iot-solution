@@ -11,7 +11,7 @@ menu "USB WebCam config"
 
         choice CAMERA_MODULE
             bool "Select Camera Pinout"
-            default CAMERA_MODULE_ESP_S3_EYE if IDF_TARGET_ESP32S3
+            default CAMERA_MODULE_CUSTOM if IDF_TARGET_ESP32S3
             default CAMERA_MODULE_ESP_S2_KALUGA if IDF_TARGET_ESP32S2
             help
                 Select Camera Pinout.
