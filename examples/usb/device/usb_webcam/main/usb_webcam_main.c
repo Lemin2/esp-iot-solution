@@ -33,6 +33,8 @@ static const char *TAG = "usb_webcam";
 #define CAMERA_XCLK_FREQ           CONFIG_CAMERA_XCLK_FREQ
 #define CAMERA_FB_COUNT            2
 
+#define LED_GPIO 14
+
 #if CONFIG_IDF_TARGET_ESP32S3
 #define UVC_MAX_FRAMESIZE_SIZE     (75*1024)
 #else
@@ -109,6 +111,7 @@ static esp_err_t camera_init(uint32_t xclk_freq_hz, pixformat_t pixel_format, fr
     // If you need to reset the appeal parameters, please reinitialize the sensor.
     sensor_t *s = esp_camera_sensor_get();
     s->set_vflip(s, 1); // flip it back
+    s->set_hmirror(s, 1);
     // initial sensors are flipped vertically and colors are a bit saturated
     if (s->id.PID == OV3660_PID) {
         s->set_brightness(s, 1); // up the blightness just a bit
@@ -117,6 +120,7 @@ static esp_err_t camera_init(uint32_t xclk_freq_hz, pixformat_t pixel_format, fr
 
     if (s->id.PID == OV3660_PID || s->id.PID == OV2640_PID) {
         s->set_vflip(s, 1); // flip it back
+        s->set_hmirror(s, 1);
     } else if (s->id.PID == GC0308_PID) {
         s->set_hmirror(s, 0);
     } else if (s->id.PID == GC032A_PID) {
@@ -231,6 +235,15 @@ static void camera_fb_return_cb(uvc_fb_t *fb, void *cb_ctx)
     esp_camera_fb_return(s_fb.cam_fb_p);
 }
 
+static void configure_led(void)
+{
+    ESP_LOGI(TAG, "Example configured to blink GPIO LED!");
+    gpio_reset_pin(LED_GPIO);
+    /* Set the GPIO as a push/pull output */
+    gpio_set_direction(LED_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_GPIO, 0);
+}
+
 void app_main(void)
 {
     // if using esp-s3-eye board, show the GUI
@@ -271,9 +284,16 @@ void app_main(void)
     ESP_LOGI(TAG, "\tFrame(3) = %d * %d @%dfps", UVC_FRAMES_INFO[0][3].width, UVC_FRAMES_INFO[0][3].height, UVC_FRAMES_INFO[0][3].rate);
 #endif
 
+    //configure_led();
+    gpio_reset_pin(18);
+    /* Set the GPIO as a push/pull output */
+    gpio_set_direction(18, GPIO_MODE_OUTPUT);
+    gpio_set_level(18, 0);
     ESP_ERROR_CHECK(uvc_device_config(0, &config));
     ESP_ERROR_CHECK(uvc_device_init());
 
+    //gpio_set_level(LED_GPIO, 0);
+    //configure_led();
     while (1) {
 #if CONFIG_CAMERA_MODULE_ESP_S3_EYE
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
