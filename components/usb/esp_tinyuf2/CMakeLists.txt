@@ -1,3 +1,8 @@
+if(BOOTLOADER_BUILD)
+    idf_component_register()
+    return()
+endif()
+
 idf_component_get_property(TUSB_PATH leeebo__tinyusb_src COMPONENT_DIR)
 idf_component_get_property(DCD_CORE_INCLUDES leeebo__tinyusb_src DCD_CORE_INCLUDES)
 idf_component_get_property(DCD_CORE_SRCS leeebo__tinyusb_src DCD_CORE_SRCS)
@@ -34,7 +39,7 @@ idf_component_register(
                     PRIV_REQUIRES usb nvs_flash vfs esp_ringbuf esp_pm)
 
 if(NOT CONFIG_TINYUSB_SOURCE_CODE_ONLY)
-message(FATAL_ERROR "Please disable 'Build tinyusb as a static library' in menuconfig 'TinyUSB soucre'")
+message(FATAL_ERROR "Please disable 'Build tinyusb as a static library' in menuconfig 'TinyUSB source'")
 endif()
 
 target_compile_options(${COMPONENT_LIB} PUBLIC

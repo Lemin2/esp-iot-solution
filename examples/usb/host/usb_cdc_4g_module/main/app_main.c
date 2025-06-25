@@ -247,6 +247,7 @@ void app_main(void)
     modem_http_get_nvs_wifi_config(&s_modem_wifi_config);
     modem_http_init(&s_modem_wifi_config);
 #endif
+
     esp_netif_t *ap_netif = modem_wifi_ap_init();
     assert(ap_netif != NULL);
     ESP_ERROR_CHECK(modem_wifi_set(&s_modem_wifi_config));
@@ -282,7 +283,9 @@ void app_main(void)
     esp_ping_new_session(&ping_config, &cbs, &ping);
 #endif
 
+#ifdef CONFIG_EXAMPLE_AUTO_UPDATE_DNS
     uint32_t ap_dns_addr = 0;
+#endif
     while (1) {
 
 #if !defined(CONFIG_EXAMPLE_ENTER_PPP_DURING_INIT) || defined(CONFIG_MODEM_SUPPORT_SECONDARY_AT_PORT)
@@ -315,4 +318,5 @@ void app_main(void)
 #endif
         vTaskDelay(pdMS_TO_TICKS(10000));
     }
+    modem_board_deinit();
 }

@@ -68,3 +68,12 @@
 
 * BLE-OTA:
   * Add support for ESP32C2 and ESP32C6.
+
+## v0.1.13 - 2024-10-21
+
+* BLE-OTA:
+  * Add support for Delta OTA.
+
+## v0.1.14 - 2024-11-21
+* BLE-OTA:
+  * Add support for enabling BLE 5.0 for NimBLE

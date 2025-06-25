@@ -34,6 +34,26 @@ list(APPEND srcs            "tps/src/esp_tps.c")
 list(APPEND include         "tps/include")
 endif()
 
+if(CONFIG_BLE_BCS)
+list(APPEND srcs            "bcs/src/esp_bcs.c")
+list(APPEND include         "bcs/include")
+endif()
+
+if(CONFIG_BLE_UDS)
+list(APPEND srcs            "uds/src/esp_uds.c")
+list(APPEND include         "uds/include")
+endif()
+
+if(CONFIG_BLE_CTS)
+list(APPEND srcs            "cts/src/esp_cts.c")
+list(APPEND include         "cts/include")
+endif()
+
+if(CONFIG_BLE_WSS)
+list(APPEND srcs            "wss/src/esp_wss.c")
+list(APPEND include         "wss/include")
+endif()
+
 list(APPEND req "ble_conn_mgr")
 
 idf_component_register(SRCS "${srcs}"

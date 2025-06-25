@@ -1,5 +1,14 @@
 # ChangeLog
 
+## v1.1.1 - 2025-1-20
+
+* Fix the issue of crashes and reboots caused by reinstalling the USB PHY.
+
+## v1.1.0 - 2024-12-11
+
+* Support bootloader uf2
+* Support ESP32-P4
+
 ## v0.2.2 - 2024-06-19
 
 * Fix usb may not be enumerated after switch from usb-serial-jtag to usb-otg

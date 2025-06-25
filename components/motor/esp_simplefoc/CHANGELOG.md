@@ -1,5 +1,25 @@
 # ChangeLog
 
+## v1.2.1 - 2025-4-15
+
+### Bug Fix:
+* FOC:
+    *  Fix uninitialized local driver struct variables causing assignment issues under compiler optimization.
+
+## v1.2.0 - 2024-12-31
+### Enhancements:
+* FOC:
+  *  The angle sensor initializes I2C using the ``i2c_bus`` component to support both new and old I2C driver.
+
+### Bug Fix:
+* FOC:
+  *  Fix the issue where the pins used by the SPI sensor in TEST_APPS exceed the pin range of the ESP32.
+
+## v1.1.0 - 2024-11-26
+### Enhancements:
+* FOC:
+    * Support 6PWM driver. Note that only chips that support ``MCPWM`` can use 6PWM driver.
+
 ## v1.0.0 - 2024-9-20
 ### Enhancements:
 * FOC:

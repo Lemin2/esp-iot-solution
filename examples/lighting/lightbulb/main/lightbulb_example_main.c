@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
@@ -75,6 +75,12 @@ lightbulb_power_limit_t limit = {
     .white_min_brightness = 10
 };
 
+lightbulb_gamma_config_t Gamma = {
+    .balance_coefficient = {1.0, 1.0, 1.0, 1.0, 1.0},
+    .color_curve_coefficient = 2.0,
+    .white_curve_coefficient = 2.0,
+};
+
 void app_main(void)
 {
     /* Not a warning, just highlighted */
@@ -102,8 +108,8 @@ void app_main(void)
         .type = DRIVER_BP57x8D,
         .driver_conf.bp57x8d.freq_khz = 300,
         .driver_conf.bp57x8d.enable_iic_queue = true,
-        .driver_conf.bp57x8d.iic_clk = 3,
-        .driver_conf.bp57x8d.iic_sda = 7,
+        .driver_conf.bp57x8d.iic_clk = CONFIG_BP5758D_IIC_CLK_GPIO,
+        .driver_conf.bp57x8d.iic_sda = CONFIG_BP5758D_IIC_SDA_GPIO,
         .driver_conf.bp57x8d.current = {10, 10, 10, 30, 30},
 #endif
         // 2. Configure the drive capability
@@ -114,11 +120,7 @@ void app_main(void)
 #if CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_WS2812
         .capability.led_beads = LED_BEADS_3CH_RGB,
 #elif CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_BP5758D
-#if TEST_IIC_RGBWW_LIGHTBULB
         .capability.led_beads = LED_BEADS_5CH_RGBCW,
-#else
-        .capability.led_beads = LED_BEADS_5CH_RGBCW,
-#endif
 #elif CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_PWM && TEST_PWM_RGBCW_LIGHTBULB
         .capability.led_beads = LED_BEADS_5CH_RGBCW,
 #else
@@ -135,8 +137,8 @@ void app_main(void)
         .io_conf.pwm_io.warm_brightness = PWM_W_GPIO,
 #endif
 #ifdef CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_BP5758D
-        .io_conf.iic_io.red = OUT1,
-        .io_conf.iic_io.green = OUT2,
+        .io_conf.iic_io.red = OUT2,
+        .io_conf.iic_io.green = OUT1,
         .io_conf.iic_io.blue = OUT3,
         .io_conf.iic_io.cold_white = OUT5,
         .io_conf.iic_io.warm_yellow = OUT4,
@@ -145,18 +147,18 @@ void app_main(void)
         .external_limit = &limit,
 
         //5. Gamma param
-        .gamma_conf = NULL,
+        .gamma_conf = &Gamma,
 
         //6. Mix table config (optional)
-#ifdef CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_BP5758D
+#if CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_BP5758D
         .color_mix_mode.precise.table = color_data,
         .color_mix_mode.precise.table_size = COLOR_SZIE,
-        .capability.enable_precise_color_control = 0,
+        .capability.enable_precise_color_control = 1,
 #endif
 #if CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_BP5758D && TEST_IIC_RGBWW_LIGHTBULB
         .cct_mix_mode.precise.table_size = MIX_TABLE_SIZE,
         .cct_mix_mode.precise.table = table,
-        .capability.enable_precise_cct_control = 0,
+        .capability.enable_precise_cct_control = 1,
 #else
         .cct_mix_mode.standard.kelvin_max = 6500,
         .cct_mix_mode.standard.kelvin_min = 2200,

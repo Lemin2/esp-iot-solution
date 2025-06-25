@@ -1,4 +1,4 @@
-version: "1.4.0"
+version: "1.5.0"
 targets:
   - esp32s2
   - esp32s3
@@ -13,3 +13,6 @@ dependencies:
 examples:
   - path: ../../../examples/usb/host/usb_camera_mic_spk
   - path: ../../../examples/usb/host/usb_camera_lcd_display
+sbom:
+  supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+  originator: 'Organization: Espressif Systems (Shanghai) CO LTD'

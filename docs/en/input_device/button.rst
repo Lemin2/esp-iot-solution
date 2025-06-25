@@ -55,14 +55,14 @@ Triggering conditions for each button event are enlisted in the table below:
 Each button supports **call-back** and **pooling** mode.
 
 - Call-back: Each event of a button can register a call-back function for it, and the call-back function will be called when an event is generated. This method has high efficiency and real-time performance, and no events will be lost.
-- Polling: Periodically call :c:func:`iot_button_get_event` in the program to query the current event of the button. This method is easy to use and is suitable for occasions with simple tasks
+- Polling: Periodically call :c:func:`iot_button_get_event` in the program to query the current event of the button. This method is easy to use and is suitable for occasions with simple tasks. Not all key press events are captured in time, leading to a risk of missing events.
 
 .. note:: you can also combine the above two methods.
 
 .. attention:: No blocking operations such as **TaskDelay** are allowed in the call-back function
 
 .. image:: https://dl.espressif.com/AE/esp-iot-solution/button_3.3.1.svg
-   :alt: Button
+    :alt: Button
 
 Configuration
 -------------
@@ -79,11 +79,9 @@ Configuration
 
 - ADC_BUTTON_MAX_BUTTON_PER_CHANNEL : maximum number of ADC buttons per channel
 
-- ADC_BUTTON_SAMPLE_TIMES : ADC sample time
+- ADC_BUTTON_SAMPLE_TIMES: The number of samples per ADC scan.
 
-- BUTTON_SERIAL_TIME_MS : call-back interval triggered by long press time
-
-- BUTTON_LONG_PRESS_TOLERANCE_MS: Used to set the tolerance time for long presses.
+- BUTTON_LONG_PRESS_HOLD_SERIAL_TIME_MS: The interval time for triggering the callback during a long press.
 
 Demonstration
 --------------
@@ -93,54 +91,49 @@ Create a button
 .. code:: c
 
     // create gpio button
-    button_config_t gpio_btn_cfg = {
-        .type = BUTTON_TYPE_GPIO,
-        .long_press_time = CONFIG_BUTTON_LONG_PRESS_TIME_MS,
-        .short_press_time = CONFIG_BUTTON_SHORT_PRESS_TIME_MS,
-        .gpio_button_config = {
-            .gpio_num = 0,
-            .active_level = 0,
-        },
+    const button_config_t btn_cfg = {0};
+    const button_gpio_config_t btn_gpio_cfg = {
+        .gpio_num = 0,
+        .active_level = 0,
     };
-    button_handle_t gpio_btn = iot_button_create(&gpio_btn_cfg);
+    button_handle_t gpio_btn = NULL;
+    esp_err_t ret = iot_button_new_gpio_device(&btn_cfg, &btn_gpio_cfg, &gpio_btn);
     if(NULL == gpio_btn) {
         ESP_LOGE(TAG, "Button create failed");
     }
 
     // create adc button
-    button_config_t adc_btn_cfg = {
-        .type = BUTTON_TYPE_ADC,
-        .long_press_time = CONFIG_BUTTON_LONG_PRESS_TIME_MS,
-        .short_press_time = CONFIG_BUTTON_SHORT_PRESS_TIME_MS,
-        .adc_button_config = {
-            .adc_channel = 0,
-            .button_index = 0,
-            .min = 100,
-            .max = 400,
-        },
+    const button_config_t btn_cfg = {0};
+    button_adc_config_t btn_adc_cfg = {
+        .unit_id = ADC_UNIT_1,
+        .adc_channel = 0,
+        .button_index = 0,
+        .min = 100,
+        .max = 400,
     };
-    button_handle_t adc_btn = iot_button_create(&adc_btn_cfg);
+
+    button_handle_t adc_btn = NULL;
+    esp_err_t ret = iot_button_new_adc_device(&btn_cfg, &btn_adc_cfg, &adc_btn);
     if(NULL == adc_btn) {
         ESP_LOGE(TAG, "Button create failed");
     }
 
     // create matrix keypad button
-    button_config_t matrix_button_cfg = {
-        .type = BUTTON_TYPE_MATRIX,
-        .long_press_time = CONFIG_BUTTON_LONG_PRESS_TIME_MS,
-        .short_press_time = CONFIG_BUTTON_SHORT_PRESS_TIME_MS,
-        .matrix_button_config = {
-            .row_gpio_num = 0,
-            .col_gpio_num = 1,
-        }
+    const button_config_t btn_cfg = {0};
+    const button_matrix_config_t matrix_cfg = {
+        .row_gpios = (int32_t[]){4, 5, 6, 7},
+        .col_gpios = (int32_t[]){3, 8, 16, 15},
+        .row_gpio_num = 4,
+        .col_gpio_num = 4,
     };
-    button_handle_t matrix_button = iot_button_create(&matrix_button_cfg);
+    button_handle_t matrix_button = NULL;
+    esp_err_t ret = iot_button_new_matrix_device(&btn_cfg, &matrix_cfg, btns, &matrix_button);
     if(NULL == matrix_button) {
         ESP_LOGE(TAG, "Button create failed");
     }
 
 .. Note::
-    When the IDF version is greater than or equal to release/5.0, the ADC button uses ADC1. If ADC1 is used elsewhere in the project, please provide the `adc_handle` and `adc_channel` to configure the ADC button.
+    When using ADC1 for ADC buttons and ADC1 is also used elsewhere in the project, please pass in adc_handle and adc_channel to configure the ADC button.
 
     .. code::C
         adc_oneshot_unit_handle_t adc1_handle;
@@ -149,15 +142,19 @@ Create a button
         };
         //-------------ADC1 Init---------------//
         adc_oneshot_new_unit(&init_config1, &adc1_handle);
-        // create adc button
-        button_config_t adc_btn_cfg = {
-            .type = BUTTON_TYPE_ADC,
-            .adc_button_config = {
-                .adc_handle = &adc1_handle,
-                .adc_channel = 1,
-            },
+
+        const button_config_t btn_cfg = {0};
+        button_adc_config_t btn_adc_cfg = {
+            .adc_handle = &adc1_handle,
+            .unit_id = ADC_UNIT_1,
+            .adc_channel = 0,
+            .button_index = 0,
+            .min = 100,
+            .max = 400,
         };
-        button_handle_t adc_btn = iot_button_create(&adc_btn_cfg);
+
+        button_handle_t adc_btn = NULL;
+        esp_err_t ret = iot_button_new_adc_device(&btn_cfg, &btn_adc_cfg, &adc_btn);
         if(NULL == adc_btn) {
             ESP_LOGE(TAG, "Button create failed");
         }
@@ -181,7 +178,7 @@ In this context:
             ESP_LOGI(TAG, "BUTTON_SINGLE_CLICK");
         }
 
-        iot_button_register_cb(gpio_btn, BUTTON_SINGLE_CLICK, button_single_click_cb,NULL);
+        iot_button_register_cb(gpio_btn, BUTTON_SINGLE_CLICK, NULL, button_single_click_cb,NULL);
 
 
 - And here's an example involving multiple callback functions:
@@ -197,15 +194,15 @@ In this context:
         {
             ESP_LOGI(TAG, "BUTTON_LONG_PRESS_START_2");
         }
-        button_event_config_t cfg = {
-            .event = BUTTON_LONG_PRESS_START,
-            .event_data.long_press.press_time = 2000,
+
+        button_event_args_t args = {
+            .long_press.press_time = 2000,
         };
 
-        iot_button_register_event_cb(gpio_btn, cfg, button_long_press_1_cb, NULL);
+        iot_button_register_cb(gpio_btn, BUTTON_LONG_PRESS_START, &args, button_auto_check_cb_1, NULL);
 
-        cfg.event_data.long_press.press_time = 5000;
-        iot_button_register_event_cb(gpio_btn, cfg, button_long_press_2_cb, NULL);
+        args.long_press.press_time = 5000;
+        iot_button_register_cb(gpio_btn, BUTTON_LONG_PRESS_START, &args, button_long_press_2_cb, NULL);
 
 Dynamically Modifying Default Button Values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -229,7 +226,6 @@ In light_sleep mode, the `esp_timer` triggers periodically, resulting in sustain
 
 Configuration Required:
 
-- Enable the `CONFIG_GPIO_BUTTON_SUPPORT_POWER_SAVE` option to include low-power-related code in the component.
 - Ensure all created buttons type are GPIO type and have `enable_power_save` activated. The presence of other buttons may render the low-power mode ineffective.
 
 .. Note:: This feature ensures that the Button component only wakes up the CPU when in use, but does not guarantee the CPU will always enter low-power mode.
@@ -268,15 +264,15 @@ As shown, low-power mode results in more power savings.
 
 .. code:: c
 
-    button_config_t btn_cfg = {
-        .type = BUTTON_TYPE_GPIO,
-        .gpio_button_config = {
-            .gpio_num = button_num,
-            .active_level = BUTTON_ACTIVE_LEVEL,
-            .enable_power_save = true,
-        },
+    button_config_t btn_cfg = {0};
+    button_gpio_config_t gpio_cfg = {
+        .gpio_num = button_num,
+        .active_level = BUTTON_ACTIVE_LEVEL,
+        .enable_power_save = true,
     };
-    button_handle_t btn = iot_button_create(&btn_cfg);
+
+    button_handle_t btn;
+    iot_button_new_gpio_device(&btn_cfg, &gpio_cfg, &btn);
 
 When to Enter Light Sleep
 

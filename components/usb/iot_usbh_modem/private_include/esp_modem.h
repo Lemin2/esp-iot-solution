@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -79,8 +79,8 @@ typedef struct {
     uint32_t event_task_stack_size; /*!< UART Event Task Stack size */
     int event_task_priority;        /*!< UART Event Task Priority */
     int line_buffer_size;           /*!< Line buffer size for command mode */
-    usbh_cdc_cb_t conn_callback;
-    usbh_cdc_cb_t disconn_callback;
+    usbh_cdc_event_cb_t conn_callback;
+    usbh_cdc_event_cb_t disconn_callback;
 } esp_modem_dte_config_t;
 
 /**
@@ -99,8 +99,8 @@ typedef struct {
         .rx_io_num = 26,                        \
         .rts_io_num = 27,                       \
         .cts_io_num = 23,                       \
-        .rx_buffer_size = 1024,                 \
-        .tx_buffer_size = 512,                  \
+        .rx_buffer_size = 2048,                 \
+        .tx_buffer_size = 2048,                  \
         .pattern_queue_size = 20,               \
         .event_queue_size = 30,                 \
         .event_task_stack_size = 2048,          \
@@ -224,11 +224,12 @@ esp_err_t esp_modem_set_event_handler(esp_modem_dte_t *dte, esp_event_handler_t 
  *
  * @param dte modem_dte_t type object
  * @param handler event handler to unregister
+ * @param event_id event id to unregister
  * @return esp_err_t
  *      - ESP_OK on success
  *      - ESP_ERR_INVALID_ARG on invalid combination of event base and event id
  */
-esp_err_t esp_modem_remove_event_handler(esp_modem_dte_t *dte, esp_event_handler_t handler);
+esp_err_t esp_modem_remove_event_handler(esp_modem_dte_t *dte, esp_event_handler_t handler, int32_t event_id);
 
 esp_err_t esp_modem_post_event(esp_modem_dte_t *dte, int32_t event_id, void* event_data, size_t event_data_size, TickType_t ticks_to_wait);
 

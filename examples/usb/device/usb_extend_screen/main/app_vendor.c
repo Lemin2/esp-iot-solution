@@ -17,13 +17,14 @@ static frame_t *current_frame = NULL;
 // Vendor callbacks
 //--------------------------------------------------------------------+
 
-#define CONFIG_USB_VENDOR_RX_BUFSIZE 512
+#define CONFIG_USB_VENDOR_RX_BUFSIZE  VENDOR_BUF_SIZE
 
 // -- Display Packets
 #define UDISP_TYPE_RGB565  0
 #define UDISP_TYPE_RGB888  1
 #define UDISP_TYPE_YUV420  2
 #define UDISP_TYPE_JPG     3
+#define UDISP_TYPE_END     0xff
 
 typedef struct {
     uint16_t crc16;
@@ -39,13 +40,22 @@ typedef struct {
 
 void transfer_task(void *pvParameter)
 {
-    frame_allocate(3, JPEG_BUFFER_SIZE);
+    frame_allocate(6, CONFIG_USB_EXTEND_SCREEN_FRAME_LIMIT_B);
     frame_t *usr_frame = NULL;
     while (1) {
         usr_frame = frame_get_filled();
         app_lcd_draw(usr_frame->data,  usr_frame->info.total, usr_frame->info.width, usr_frame->info.height);
         frame_return_empty(usr_frame);
     }
+}
+
+static bool buffer_skip(frame_info_t *frame_info, uint32_t len)
+{
+    if (frame_info->received + len >= frame_info->total) {
+        return true;
+    }
+    frame_info->received += len;
+    return false;
 }
 
 static bool buffer_fill(frame_t *frame, uint8_t *buf, uint32_t len)
@@ -65,21 +75,23 @@ static bool buffer_fill(frame_t *frame, uint8_t *buf, uint32_t len)
     return false;
 }
 
-void tud_vendor_rx_cb(uint8_t itf)
+void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize)
 {
     static uint8_t rx_buf[CONFIG_USB_VENDOR_RX_BUFSIZE];
+    static bool skip_frame = false;
+    static frame_info_t skip_frame_info = {0};
 
     while (tud_vendor_n_available(itf)) {
         int read_res = tud_vendor_n_read(itf, rx_buf, CONFIG_USB_VENDOR_RX_BUFSIZE);
         if (read_res > 0) {
-            if (!current_frame) {
+            if (!current_frame && !skip_frame) {
                 udisp_frame_header_t *pblt = (udisp_frame_header_t *)rx_buf;
                 switch (pblt->type) {
                 case UDISP_TYPE_RGB565:
                 case UDISP_TYPE_RGB888:
                 case UDISP_TYPE_YUV420:
                 case UDISP_TYPE_JPG: {
-                    if (pblt->x != 0 || pblt->y != 0 || pblt->width != 1024 || pblt->height != 600) {
+                    if (pblt->x != 0 || pblt->y != 0 || pblt->width != EXAMPLE_LCD_H_RES || pblt->height != EXAMPLE_LCD_V_RES) {
                         break;
                     }
 
@@ -104,13 +116,24 @@ void tud_vendor_rx_cb(uint8_t itf)
                             current_frame = NULL;
                         }
                     } else {
+                        memset(&skip_frame_info, 0, sizeof(skip_frame_info));
+                        skip_frame_info.total = pblt->payload_total;
+                        skip_frame = true;
+                        buffer_skip(&skip_frame_info, read_res - sizeof(udisp_frame_header_t));
                         ESP_LOGE(TAG, "Get frame is null");
                     }
                     break;
                 }
+                case UDISP_TYPE_END:
+                    break;
                 default:
                     ESP_LOGE(TAG, "error cmd");
                     break;
+                }
+            } else if (skip_frame) {
+                if (buffer_skip(&skip_frame_info, read_res)) {
+                    current_frame = NULL;
+                    skip_frame = false;
                 }
             } else {
                 if (buffer_fill(current_frame, rx_buf, read_res)) {

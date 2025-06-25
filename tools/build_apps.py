@@ -32,6 +32,7 @@ IGNORE_WARNINGS = [
     r'warning HPM-DC, which helps to run some flash > 80MHz by adjusting dummy cycles, is no longer enabled by default.',
     r'warning To enable this feature, your bootloader needs to have the support for it \(by explicitly selecting BOOTLOADER_FLASH_DC_AWARE\)',
     r'warning If your bootloader does not support it, select SPI_FLASH_HPM_DC_DISABLE to suppress the warning. READ DOCS FIRST!',
+    r'.+MultiCommand.+',
 ]
 
 def _get_idf_version():
@@ -63,6 +64,7 @@ def get_cmake_apps(
         build_log_filename='build_log.txt',
         size_json_filename='size.json',
         check_warnings=True,
+        no_preserve=False,
         default_build_targets=default_build_targets,
         manifest_files=[
             str(Path(PROJECT_ROOT) /'components'/'.build-rules.yml'),

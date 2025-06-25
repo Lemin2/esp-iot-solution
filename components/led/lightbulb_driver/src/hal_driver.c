@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -28,7 +28,7 @@ static const char *TAG = "hal_manage";
 #define PROBE_GPIO 4
 #define FADE_DEBUG_LOG_OUTPUT 0
 
-static void create_gpio_probe(int gpio_num, int level)
+void create_gpio_probe(int gpio_num, int level)
 {
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -40,7 +40,7 @@ static void create_gpio_probe(int gpio_num, int level)
     gpio_set_level(gpio_num, level);
 }
 
-static void gpio_reverse(int gpio_num)
+void gpio_reverse(int gpio_num)
 {
     static int level = 0;
     gpio_set_level(gpio_num, (level++) % 2);
@@ -100,10 +100,9 @@ typedef struct {
     hal_obj_t *interface;
     int s_err_count;
     bool use_hw_fade;
-    bool linear_use_curve_table;
-    // index 0: curve table
-    // index 1: linear table
-    uint16_t *table_group[2];
+    bool enable_multi_ch_write;
+    uint16_t *table_group;
+    uint16_t table_size;
     // R G B C W
     float balance_coefficient[5];
     SemaphoreHandle_t fade_mutex;
@@ -133,6 +132,21 @@ static hal_obj_t s_hal_obj_group[] = {
         .set_hw_fade = (x_set_hw_fade_t)pwm_set_hw_fade,
         .deinit = (x_deinit_t)pwm_deinit,
         .set_sleep_status = (x_set_sleep_t)pwm_set_sleep,
+    },
+#endif
+#ifdef CONFIG_ENABLE_SM2182E_DRIVER
+    {
+        .type = DRIVER_SM2182E,
+        .name = "SM2182E",
+        .driver_grayscale_level = (1 << 10),
+        .channel_num = 5,
+        .hardware_allow_max_input_value = (1 << 10) - 1,
+        .init = (x_init_t)sm2182e_init,
+        .set_wy_or_ct_channel = (x_set_wy_or_cb_channel_t)sm2182e_set_cw_channel,
+        .regist_channel = (x_regist_channel_t)sm2182e_regist_channel,
+        .set_shutdown = (x_set_shutdown_t)sm2182e_set_shutdown,
+        .deinit = (x_deinit_t)sm2182e_deinit,
+        .set_sleep_status = (x_set_sleep_t)sm2182e_set_standby_mode,
     },
 #endif
 #ifdef CONFIG_ENABLE_SM2135EH_DRIVER
@@ -252,7 +266,7 @@ static float final_processing(uint8_t channel, uint16_t src_value)
     return s_hal_obj->balance_coefficient[channel] * src_value;
 }
 
-static esp_err_t gamma_table_create(uint16_t *output_gamma_table, uint16_t table_size, float gamma_curve_coefficient, int32_t grayscale_level)
+esp_err_t hal_gamma_table_create(uint16_t *output_gamma_table, uint16_t table_size, float gamma_curve_coefficient, int32_t grayscale_level)
 {
     float value_tmp = 0;
 
@@ -290,13 +304,9 @@ static void force_stop_all_ch(void)
 
 static void cleanup(void)
 {
-    if (s_hal_obj->table_group[0]) {
-        free(s_hal_obj->table_group[0]);
-        s_hal_obj->table_group[0] = NULL;
-    }
-    if (s_hal_obj->table_group[1]) {
-        free(s_hal_obj->table_group[1]);
-        s_hal_obj->table_group[1] = NULL;
+    if (s_hal_obj->table_group) {
+        free(s_hal_obj->table_group);
+        s_hal_obj->table_group = NULL;
     }
     if (s_hal_obj->fade_mutex) {
         vSemaphoreDelete(s_hal_obj->fade_mutex);
@@ -322,15 +332,15 @@ static void cleanup(void)
     }
 }
 
-#define WRITE_TO_HW(CH, VALUE)                                                                                  \
-{                                                                                                               \
-    if (s_hal_obj->use_hw_fade && s_hal_obj->interface->type == DRIVER_ESP_PWM) {                               \
-        err |= s_hal_obj->interface->set_hw_fade(CH, s_hal_obj->fade_data[CH].cur, HARDWARE_RETAIN_RATE_MS);    \
-    } else if (s_hal_obj->interface->type != DRIVER_WS2812) {                                                   \
-        err |= s_hal_obj->interface->set_channel(CH, s_hal_obj->fade_data[channel].cur);                        \
-    } else {                                                                                                    \
-    /* Nothing */                                                                                               \
-    }                                                                                                           \
+#define WRITE_TO_HW(CH, VALUE)                                                                                      \
+{                                                                                                                   \
+    if(!s_hal_obj->enable_multi_ch_write) {                                                                         \
+        if (s_hal_obj->use_hw_fade) {                                                                               \
+            err |= s_hal_obj->interface->set_hw_fade(CH, s_hal_obj->fade_data[CH].cur, HARDWARE_RETAIN_RATE_MS);    \
+        } else {                                                                                                    \
+            err |= s_hal_obj->interface->set_channel(CH, s_hal_obj->fade_data[channel].cur);                        \
+        }                                                                                                           \
+   }                                                                                                                \
 }
 
 /**
@@ -433,10 +443,16 @@ static void fade_cb(void *priv)
         }
     }
 
-    // Enable multi-channel set only for ws2812 driver
-    if (s_hal_obj->interface->type == DRIVER_WS2812) {
-        s_hal_obj->interface->set_rgb_channel(s_hal_obj->fade_data[0].cur, s_hal_obj->fade_data[1].cur, s_hal_obj->fade_data[2].cur);
+    if (s_hal_obj->enable_multi_ch_write) {
+        if (s_hal_obj->interface->set_rgb_channel) {
+            s_hal_obj->interface->set_rgb_channel(s_hal_obj->fade_data[0].cur, s_hal_obj->fade_data[1].cur, s_hal_obj->fade_data[2].cur);
+        } else if (s_hal_obj->interface->set_wy_or_ct_channel) {
+            s_hal_obj->interface->set_wy_or_ct_channel(s_hal_obj->fade_data[3].cur, s_hal_obj->fade_data[4].cur);
+        } else if (s_hal_obj->interface->set_rgbwy_or_rgbct_channel) {
+            s_hal_obj->interface->set_rgbwy_or_rgbct_channel(s_hal_obj->fade_data[0].cur, s_hal_obj->fade_data[1].cur, s_hal_obj->fade_data[2].cur, s_hal_obj->fade_data[3].cur, s_hal_obj->fade_data[4].cur);
+        }
     }
+
 #ifdef FADE_TICKS_FROM_GPTIMER
     if (idle_channel_num >= s_hal_obj->interface->channel_num) {
         if (s_hal_obj->gptimer_is_active) {
@@ -493,38 +509,40 @@ esp_err_t hal_output_init(hal_config_t *config, lightbulb_gamma_config_t *gamma,
     err = s_hal_obj->interface->init(config->driver_data, driver_default_hook_func);
     LIGHTBULB_CHECK(err == ESP_OK, "driver init fail", goto EXIT);
 
-    s_hal_obj->table_group[0] = calloc(s_hal_obj->interface->driver_grayscale_level, sizeof(uint16_t));
-    LIGHTBULB_CHECK(s_hal_obj->table_group[0], "curve table buffer alloc fail", goto EXIT);
+    /**
+     * @brief Differential configuration for different chips
+     *
+     */
+    int table_size = s_hal_obj->interface->driver_grayscale_level;
+    if (s_hal_obj->interface->type == DRIVER_ESP_PWM) {
+#if CONFIG_PWM_ENABLE_HW_FADE
+        s_hal_obj->use_hw_fade = true;
+#endif
+        // PWM
+        // 10bit: 0~1024, size: 1024 + 1
+        table_size += 1;
 
-    float curve_coe = gamma ? gamma->curve_coefficient : DEFAULT_CURVE_COE;
-    float linear_coe = 1.0;
+        // I2C Chip
+        // 10bit: 0~1023, size: 1024
+        //Nothing
 
-    gamma_table_create(s_hal_obj->table_group[0], s_hal_obj->interface->driver_grayscale_level, curve_coe, s_hal_obj->interface->driver_grayscale_level);
-    s_hal_obj->table_group[0][s_hal_obj->interface->driver_grayscale_level - 1] = s_hal_obj->interface->hardware_allow_max_input_value;
-
-    if (linear_coe == curve_coe) {
-        s_hal_obj->linear_use_curve_table = true;
-    } else {
-        s_hal_obj->table_group[1] = calloc(s_hal_obj->interface->driver_grayscale_level, sizeof(uint16_t));
-        LIGHTBULB_CHECK(s_hal_obj->table_group[1], "linear table buffer alloc fail", goto EXIT);
-        gamma_table_create(s_hal_obj->table_group[1], s_hal_obj->interface->driver_grayscale_level, linear_coe, s_hal_obj->interface->driver_grayscale_level);
-        s_hal_obj->table_group[1][s_hal_obj->interface->driver_grayscale_level - 1] = s_hal_obj->interface->hardware_allow_max_input_value;
+        // WS2812 and SM2182E can only use multi-channel write
+    } else if (s_hal_obj->interface->type == DRIVER_WS2812 || s_hal_obj->interface->type == DRIVER_SM2182E) {
+        s_hal_obj->enable_multi_ch_write = true;
     }
+
+    s_hal_obj->table_size = table_size;
+    s_hal_obj->table_group = calloc(s_hal_obj->table_size, sizeof(uint16_t));
+    LIGHTBULB_CHECK(s_hal_obj->table_group, "curve table buffer alloc fail", goto EXIT);
+
+    //Currently only used as a mapping table, it will be used for fade to achieve curve sliding changes in the future
+    float curve_coe = DEFAULT_CURVE_COE;
+    hal_gamma_table_create(s_hal_obj->table_group, s_hal_obj->table_size, curve_coe, s_hal_obj->interface->hardware_allow_max_input_value);
 
     for (int i = 0; i < 5; i++) {
         float balance = gamma ? gamma->balance_coefficient[i] : 1.0;
         LIGHTBULB_CHECK(balance >= 0.0 && balance <= 1.0, "balance data error", goto EXIT);
         s_hal_obj->balance_coefficient[i] = balance;
-    }
-
-    /**
-     * @brief Differential configuration for different chips
-     *
-     */
-    if (s_hal_obj->interface->type == DRIVER_ESP_PWM) {
-#if CONFIG_PWM_ENABLE_HW_FADE
-        s_hal_obj->use_hw_fade = true;
-#endif
     }
 
 #ifdef FADE_TICKS_FROM_GPTIMER
@@ -1052,21 +1070,7 @@ esp_err_t hal_get_curve_table_value(uint16_t input, uint16_t *output)
     LIGHTBULB_CHECK(s_hal_obj, "init() must be called first", return ESP_ERR_INVALID_STATE);
     LIGHTBULB_CHECK(output, "out_data is null", return ESP_ERR_INVALID_STATE);
 
-    *output = s_hal_obj->table_group[0][input];
-
-    return ESP_OK;
-}
-
-esp_err_t hal_get_linear_table_value(uint16_t input, uint16_t *output)
-{
-    LIGHTBULB_CHECK(s_hal_obj, "init() must be called first", return ESP_ERR_INVALID_STATE);
-    LIGHTBULB_CHECK(output, "out_data is null", return ESP_ERR_INVALID_STATE);
-
-    if (s_hal_obj->linear_use_curve_table) {
-        *output = s_hal_obj->table_group[0][input];
-    } else {
-        *output = s_hal_obj->table_group[1][input];
-    }
+    *output = s_hal_obj->table_group[input];
 
     return ESP_OK;
 }

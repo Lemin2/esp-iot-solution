@@ -1,5 +1,23 @@
 # ChangeLog
 
+## v1.1.3 - 2025-6-23
+
+### bugfix：
+
+*  Fixed the log TAG issue
+
+## v1.1.2 - 2025-04-03
+
+### bugfix:
+
+* Fixed the issue where the ST7701 RGB interface mirror and swap were ineffective
+
+## v1.1.1 - 2024-11-10
+
+### bugfix:
+
+* Modified the order of reading the ID register
+
 ## v1.1.0 - 2024-05-06
 
 ### Enhancements:

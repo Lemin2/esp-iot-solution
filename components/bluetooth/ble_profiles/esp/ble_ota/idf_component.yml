@@ -1,4 +1,4 @@
-version: "0.1.12"
+version: "0.1.14"
 targets:
   - esp32
   - esp32c3
@@ -14,3 +14,6 @@ dependencies:
   cmake_utilities: "0.*"
 examples:
   - path: ../../../../../examples/bluetooth/ble_ota
+sbom:
+  supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+  originator: 'Organization: Espressif Systems (Shanghai) CO LTD'

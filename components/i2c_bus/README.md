@@ -1,11 +1,13 @@
 # Component: I2C BUS
-[Online documentation](https://docs.espressif.com/projects/esp-iot-solution/en/latest/basic_component/i2c_bus.html)
+[Online documentation](https://docs.espressif.com/projects/esp-iot-solution/en/latest/basic/bus/i2c_bus.html)
 
 The I2C bus component (Bus) is a set of application-layer code built on top of the ESP-IDF peripheral driver code, It is mainly used for bus communication between ESP chips and external devices. From the point of application development, this component has the following features:
 
 1. Simplified peripheral initialization processes
 2. Thread-safe device operations
 3. Simple and flexible RW operations
+4. Compatible with `driver/i2c` and `esp_driver_i2c`
+5. Supports additional software I2C
 
 This component abstracts the following concepts:
 

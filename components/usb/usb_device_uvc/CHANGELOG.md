@@ -1,4 +1,11 @@
 # ChangeLog
+## v1.1.2 2024-10-25
+
+* Add test-apps
+
+## v1.1.1 2024-10-17
+
+* Add USB PHY initialization support for P4.
 
 ## v1.1.0 2024-6-13
 

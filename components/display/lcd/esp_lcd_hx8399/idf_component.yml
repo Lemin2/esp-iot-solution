@@ -1,4 +1,4 @@
-version: "1.0.0"
+version: "1.0.3"
 targets:
   - esp32p4
 description: ESP LCD HX8399 (MIPI-DSI)
@@ -9,3 +9,6 @@ dependencies:
   idf:
     version: '>=5.3'
   cmake_utilities: "0.*"
+sbom:
+  supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+  originator: 'Organization: Espressif Systems (Shanghai) CO LTD'

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,7 +10,11 @@
 #include "esp_idf_version.h"
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+#if CONFIG_I2C_BUS_BACKWARD_CONFIG
+#include "driver/i2c.h"
+#else
 #include "driver/i2c_master.h"
+#endif
 #else
 #include "driver/i2c.h"
 #endif
@@ -26,12 +30,32 @@ extern "C"
 {
 #endif
 
+#if CONFIG_I2C_BUS_SUPPORT_SOFTWARE
+typedef enum {
+    I2C_NUM_SW_0 = I2C_NUM_MAX + 1,
+#if CONFIG_I2C_BUS_SOFTWARE_MAX_PORT >= 2
+    I2C_NUM_SW_1,
+#endif
+#if CONFIG_I2C_BUS_SOFTWARE_MAX_PORT >= 3
+    I2C_NUM_SW_2,
+#endif
+#if CONFIG_I2C_BUS_SOFTWARE_MAX_PORT >= 4
+    I2C_NUM_SW_3,
+#endif
+#if CONFIG_I2C_BUS_SOFTWARE_MAX_PORT >= 5
+    I2C_NUM_SW_4,
+#endif
+    I2C_NUM_SW_MAX,
+} i2c_sw_port_t;
+#endif
+
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
 #define gpio_pad_select_gpio esp_rom_gpio_pad_select_gpio
 #define portTICK_RATE_MS portTICK_PERIOD_MS
 #endif
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+#if !CONFIG_I2C_BUS_BACKWARD_CONFIG
 /**
  * @brief I2C initialization parameters
  */
@@ -46,6 +70,7 @@ typedef struct {
     } master;                           /*!< I2C master config */
     uint32_t clk_flags;                 /*!< Bitwise of ``I2C_SCLK_SRC_FLAG_**FOR_DFS**`` for clk source choice*/
 } i2c_config_t;
+#endif
 
 typedef void *i2c_cmd_handle_t;         /*!< I2C command handle  */
 #endif
@@ -57,7 +82,7 @@ typedef void *i2c_cmd_handle_t;         /*!< I2C command handle  */
  * which means for an i2c port only one group parameter works. When i2c_bus_create is called more than one time for the
  * same i2c port, following parameter will override the previous one.
  *
- * @param port I2C port number
+ * @param port I2C port number. Please note that enabling I2C_BUS_SUPPORT_SOFTWARE in menuconfig allows you to use ports in i2c_sw_port_t to enable software I2C.
  * @param conf Pointer to I2C bus configuration
  * @return i2c_bus_handle_t Return the I2C bus handle if created successfully, return NULL if failed.
  */
@@ -72,6 +97,18 @@ i2c_bus_handle_t i2c_bus_create(i2c_port_t port, const i2c_config_t *conf);
  *     - ESP_FAIL Fail
  */
 esp_err_t i2c_bus_delete(i2c_bus_handle_t *p_bus_handle);
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+#if !CONFIG_I2C_BUS_BACKWARD_CONFIG
+/**
+ * @brief Get internal idf bus_handle from i2c_bus_handle
+ *
+ * @param bus_handle I2C bus handle
+ * @return i2c_master_bus_handle_t Return the idf bus_handle if obtained successfully, return NULL if failed.
+ */
+i2c_master_bus_handle_t i2c_bus_get_internal_bus_handle(i2c_bus_handle_t bus_handle);
+#endif
+#endif
 
 /**
  * @brief Scan i2c devices attached on i2c bus

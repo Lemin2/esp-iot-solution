@@ -1,10 +1,79 @@
 # ChangeLog
 
+## v1.8.3 - 2025-06-19
+
+### Bug Fix:
+
+- Fixed a compilation issue on IDF 6.0
+
+## v1.8.2 - 2025-04-17
+
+### Bug Fix:
+
+- Adjust the power calculation algorithm
+- Adjust the upper limit of pwm resolution to 12bit
+
+## v1.8.1 - 2025-04-17
+
+### Bug Fix:
+
+- Modify some compilation conditions
+
+## v1.8.0 - 2025-03-28
+
+### Improve:
+
+- Added new dimming driver SM2182E
+- Modify some kconfig names. Please refer to [sdkconfig.rename](./sdkconfig.rename)
+
+## v1.7.1 - 2025-03-05
+
+### Bug Fix:
+
+* Enable new IIC driver in v5.2.6 instead of v5.2.4
+* Fixed the color power calculation error
+
+## v1.7.0 - 2025-02-24
+
+### Improve:
+
+- Update the version of dependent cmake_utilities to *
+
+## v1.6.1 - 2025-02-19
+
+### Bug Fix:
+
+* Change led_num to uint16_t for ws2812
+
+## v1.6.0 - 2025-01-13
+
+### Enhancements:
+
+* Update to the latest version of I2C driver
+
+## v1.5.0 - 2024-12-25
+
+### Enhancements:
+
+* Remove linear dimming, default to enabling curve dimming for all. 
+
+## v1.4.0 - 2024-11-15
+
+### Enhancements:
+
+* Example adapted to ESP32-C5 chip
+
+## v1.3.3 - 2024-11-07
+
+### Bug Fixes:
+
+* Fixed the issue of low power output in CCT mode.
+
 ## v1.3.2 - 2024-09-19
 
 ### Enhancements:
 
-* Added cct range check in precision mode
+* Added CCT range check in precision mode
 
 ## v1.3.1 - 2024-08-28
 
@@ -63,7 +132,7 @@
 ### Enhancements:
 
 * Added the conversion function of IIC current values to the enumeration values required by the driver.
-* Added driver layer parameter checking macro and allowed to configure the detail level of the output log through menuconfig.
+* Added driver layer parameter checking macro and allowed configuring the detail level of the output log through menuconfig.
 
 ## v1.0.0 - 2024-01-16
 

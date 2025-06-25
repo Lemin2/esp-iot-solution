@@ -1,5 +1,17 @@
 # ChangeLog
 
+## v1.2.0 (2025-3-31)
+
+* Supports integration into other TinyUSB projects.
+
+## v1.1.0 (2025-1-15)
+
+* Use espressif/tinyusb: 0.17.2
+
+## v1.0.0 (2024-11-27)
+
+* Release the official version.
+
 ## v0.2.0 (2024-07-31)
 
 * Support USB High speed

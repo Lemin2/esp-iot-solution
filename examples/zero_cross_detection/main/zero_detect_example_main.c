@@ -45,7 +45,7 @@ void IRAM_ATTR zero_detection_event_cb(zero_detect_event_t zero_detect_event, ze
     switch (zero_detect_event) {
     case SIGNAL_FREQ_OUT_OF_RANGE:
         freq_out_of_range_count++;
-        if (param->signal_freq_event_data.cap_edge == MCPWM_CAP_EDGE_POS) {
+        if (param->signal_freq_event_data.cap_edge == CAP_EDGE_POS) {
             if (zcd.relay_out_of_range == RELAY_DEFAULT_HIGH) {
                 gpio_ll_set_level(&GPIO, zcd.control_pin, zcd.relay_active_level);
             } else if ((CONFIG_ZERO_DETECT_SIGNAL_TYPE == PULSE_WAVE) && (zcd.relay_out_of_range == RELAY_DEFAULT_LOW)) {  //The relay off performed on the rising edge of the pulse signal.
@@ -58,7 +58,7 @@ void IRAM_ATTR zero_detection_event_cb(zero_detect_event_t zero_detect_event, ze
         }
         break;
     case SIGNAL_VALID:
-        if (param->signal_valid_event_data.cap_edge == MCPWM_CAP_EDGE_POS) {
+        if (param->signal_valid_event_data.cap_edge == CAP_EDGE_POS) {
             if (zcd.relay_suspend) {
                 if (zcd.relay_on_off) {
                     gpio_ll_set_level(&GPIO, zcd.control_pin, zcd.relay_active_level);
@@ -73,7 +73,7 @@ void IRAM_ATTR zero_detection_event_cb(zero_detect_event_t zero_detect_event, ze
                     }
                 }
             }
-        } else if (param->signal_valid_event_data.cap_edge == MCPWM_CAP_EDGE_NEG) {
+        } else if (param->signal_valid_event_data.cap_edge == CAP_EDGE_NEG) {
             if (zcd.relay_suspend) {
                 if (zcd.relay_on_off == false) {
                     gpio_ll_set_level(&GPIO, zcd.control_pin, !zcd.relay_active_level);
@@ -90,7 +90,7 @@ void IRAM_ATTR zero_detection_event_cb(zero_detect_event_t zero_detect_event, ze
         }
         break;
     case SIGNAL_INVALID:
-        if (param->signal_invalid_event_data.cap_edge == MCPWM_CAP_EDGE_POS) {
+        if (param->signal_invalid_event_data.cap_edge == CAP_EDGE_POS) {
             if (zcd.relay_out_of_range == RELAY_CONTROL_BY_USER) {
                 if (zcd.relay_suspend) { //Operation is suspend, on or off
                     if (zcd.relay_on_off == true) {
@@ -107,7 +107,7 @@ void IRAM_ATTR zero_detection_event_cb(zero_detect_event_t zero_detect_event, ze
                     }
                 }
             }
-        } else if (param->signal_invalid_event_data.cap_edge == MCPWM_CAP_EDGE_NEG) {
+        } else if (param->signal_invalid_event_data.cap_edge == CAP_EDGE_NEG) {
             if (zcd.relay_out_of_range == RELAY_CONTROL_BY_USER) {
                 if (zcd.relay_suspend) { //Operation is suspend, on or off
                     if (zcd.relay_on_off == false) {
@@ -162,6 +162,19 @@ void app_main(void)
         vTaskDelay(500 / portTICK_PERIOD_MS);
         zero_show_data(g_zcds);           //Show zero cross data
         printf("EVENT: OUT OF RANGE COUNT:%d OFF COUNT:%d OPEN COUNT:%d\n", freq_out_of_range_count, relay_off_count, relay_open_count);
+
+        // Test pause and resume function
+        if (freq_out_of_range_count > 5) {
+            ESP_LOGI(TAG, "Pausing zero detection......");
+            zero_detect_pause(g_zcds);
+        }
+
+        if (relay_open_count > 5) {
+            ESP_LOGI(TAG, "Resuming zero detection......");
+            zero_detect_resume(g_zcds);
+            relay_open_count = 0;
+        }
+
         if (zcd.relay_suspend) {
             ESP_LOGW(TAG, "Process suspened, please wait till relay open");
         }

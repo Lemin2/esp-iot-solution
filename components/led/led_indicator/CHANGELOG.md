@@ -1,5 +1,24 @@
-
 # ChangeLog
+
+## v1.1.1 - 2025-03-11
+
+### Bugfix
+
+* Fix: Scale RGB values (0-255) to PWM duty range (0-8191)
+
+## v1.1.0 - 2025-02-24
+
+### Improve:
+
+* Update the version of dependent cmake_utilities to *
+
+## v1.0.0 - 2024-8-14
+
+* Publish the official version
+
+## v0.9.4 - 2024-10-28
+
+* make set brightness can set index. [!414](https://github.com/espressif/esp-iot-solution/issues/414)
 
 ## v0.9.3 - 2024-6-20
 

@@ -28,6 +28,7 @@ typedef struct zero_cross {
 
     bool zero_source_power_invalid;  //Power loss flag when signal source is lost
     bool zero_singal_invaild;        //Signal is in an invalid range
+    bool is_paused;                  //Pause flag for zero cross detection
 
     zero_signal_type_t zero_signal_type;  //Zero crossing signal type
     zero_driver_type_t zero_driver_type;  //Zero crossing driver type
@@ -56,13 +57,16 @@ typedef struct zero_cross {
 static void IRAM_ATTR zero_cross_handle_interrupt(void *user_data, const mcpwm_capture_event_data_t *edata)
 {
     zero_cross_dev_t *zero_cross_dev = user_data;
+    if (zero_cross_dev->is_paused) {
+        return;
+    }
     int gpio_status = 0;
     if (zero_cross_dev->zero_driver_type == GPIO_TYPE) {
         //Retrieve the current GPIO level and determine the rising or falling edge
         gpio_status = gpio_ll_get_level(&GPIO, zero_cross_dev->capture_pin);
     }
 #if defined(SOC_MCPWM_SUPPORTED)
-    bool edge_status = (gpio_status && zero_cross_dev->zero_driver_type == GPIO_TYPE) || (edata->cap_edge == MCPWM_CAP_EDGE_POS && zero_cross_dev->zero_driver_type == MCPWM_TYPE);
+    bool edge_status = (gpio_status && zero_cross_dev->zero_driver_type == GPIO_TYPE) || ((zero_signal_edge_t)edata->cap_edge == CAP_EDGE_POS && zero_cross_dev->zero_driver_type == MCPWM_TYPE);
 #else
     bool edge_status = gpio_status && zero_cross_dev->zero_driver_type == GPIO_TYPE;
 #endif
@@ -92,7 +96,11 @@ static void IRAM_ATTR zero_cross_handle_interrupt(void *user_data, const mcpwm_c
                     zero_detect_cb_param_t param = {0};
                     param.signal_valid_event_data.valid_count = zero_cross_dev->valid_count;
                     param.signal_valid_event_data.full_cycle_us = zero_cross_dev->full_cycle_us;
-                    param.signal_valid_event_data.cap_edge = MCPWM_CAP_EDGE_POS;
+                    param.signal_valid_event_data.cap_edge = CAP_EDGE_POS;
+                    //Add judgments to prevent data overflow
+                    if (zero_cross_dev->valid_count >= UINT16_MAX - 1) {
+                        zero_cross_dev->valid_count = zero_cross_dev->valid_times;
+                    }
                     zero_cross_dev->event_callback(SIGNAL_VALID, &param, zero_cross_dev->user_data);
                 }
             }
@@ -120,7 +128,10 @@ static void IRAM_ATTR zero_cross_handle_interrupt(void *user_data, const mcpwm_c
                         zero_detect_cb_param_t param = {0};
                         param.signal_valid_event_data.valid_count = zero_cross_dev->valid_count;
                         param.signal_valid_event_data.full_cycle_us = zero_cross_dev->full_cycle_us;
-                        param.signal_valid_event_data.cap_edge = MCPWM_CAP_EDGE_NEG;
+                        param.signal_valid_event_data.cap_edge = CAP_EDGE_NEG;
+                        if (zero_cross_dev->valid_count >= UINT16_MAX - 1) {
+                            zero_cross_dev->valid_count = zero_cross_dev->valid_times;
+                        }
                         zero_cross_dev->event_callback(SIGNAL_VALID, &param, zero_cross_dev->user_data);
                     }
                 }
@@ -146,9 +157,9 @@ static void IRAM_ATTR zero_cross_handle_interrupt(void *user_data, const mcpwm_c
                     param.signal_invalid_event_data.invalid_count = zero_cross_dev->invalid_count;
                     param.signal_invalid_event_data.full_cycle_us = zero_cross_dev->full_cycle_us;
                     if (edge_status) {
-                        param.signal_invalid_event_data.cap_edge = MCPWM_CAP_EDGE_POS;
+                        param.signal_invalid_event_data.cap_edge = CAP_EDGE_POS;
                     } else {
-                        param.signal_invalid_event_data.cap_edge = MCPWM_CAP_EDGE_NEG;
+                        param.signal_invalid_event_data.cap_edge = CAP_EDGE_NEG;
                     }
                     zero_cross_dev->event_callback(SIGNAL_INVALID, &param, zero_cross_dev->user_data);
                 }
@@ -156,9 +167,9 @@ static void IRAM_ATTR zero_cross_handle_interrupt(void *user_data, const mcpwm_c
             if (zero_cross_dev->event_callback && (zero_cross_dev->cap_val_end_of_sample != 0) && (zero_cross_dev->cap_val_begin_of_sample != 0)) {
                 zero_detect_cb_param_t param = {0};
                 if (edge_status) {
-                    param.signal_freq_event_data.cap_edge = MCPWM_CAP_EDGE_POS;
+                    param.signal_freq_event_data.cap_edge = CAP_EDGE_POS;
                 } else {
-                    param.signal_freq_event_data.cap_edge = MCPWM_CAP_EDGE_NEG;
+                    param.signal_freq_event_data.cap_edge = CAP_EDGE_NEG;
                 }
                 param.signal_freq_event_data.full_cycle_us = zero_cross_dev->full_cycle_us;
                 zero_cross_dev->event_callback(SIGNAL_FREQ_OUT_OF_RANGE, &param, zero_cross_dev->user_data);
@@ -179,6 +190,44 @@ static void IRAM_ATTR zero_detect_gpio_cb(void *arg)
 {
     mcpwm_capture_event_data_t edata = {0};
     zero_cross_handle_interrupt(arg, &edata);
+}
+
+void zero_detect_pause(zero_detect_handle_t zcd_handle)
+{
+    if (zcd_handle == NULL) {
+        ESP_LOGE(TAG, "ERROR: zcd_handle is NULL");
+        return;
+    }
+    zero_cross_dev_t *zcd = (zero_cross_dev_t *)zcd_handle;
+    zcd->is_paused = true;
+
+#if defined(SOC_MCPWM_SUPPORTED)
+    if (zcd->zero_driver_type == MCPWM_TYPE) {
+        mcpwm_capture_channel_disable(zcd->cap_chan);
+    }
+#endif
+    if (zcd->zero_driver_type == GPIO_TYPE) {
+        gpio_isr_handler_remove(zcd->capture_pin);
+    }
+}
+
+void zero_detect_resume(zero_detect_handle_t zcd_handle)
+{
+    if (zcd_handle == NULL) {
+        ESP_LOGE(TAG, "ERROR: zcd_handle is NULL");
+        return;
+    }
+    zero_cross_dev_t *zcd = (zero_cross_dev_t *)zcd_handle;
+    zcd->is_paused = false;
+
+#if defined(SOC_MCPWM_SUPPORTED)
+    if (zcd->zero_driver_type == MCPWM_TYPE) {
+        mcpwm_capture_channel_enable(zcd->cap_chan);
+    }
+#endif
+    if (zcd->zero_driver_type == GPIO_TYPE) {
+        gpio_isr_handler_add(zcd->capture_pin, zero_detect_gpio_cb, zcd);
+    }
 }
 
 #if defined(CONFIG_USE_GPTIMER)

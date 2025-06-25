@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
 */
@@ -16,6 +16,7 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "host/ble_uuid.h"
 #include "ble_ota.h"
+#include "freertos/semphr.h"
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "esp_nimble_hci.h"
 #endif
@@ -375,8 +376,14 @@ ble_ota_start_write_chr(struct os_mbuf *om)
             ESP_LOGI(TAG, "Decryption end failed");
         }
 #endif
+        extern SemaphoreHandle_t notify_sem;
+        xSemaphoreTake(notify_sem, portMAX_DELAY);
+
         start_ota = false;
         ota_total_len = 0;
+
+        xSemaphoreGive(notify_sem);
+
         ESP_LOGD(TAG, "recv ota stop cmd");
         cmd_ack[2] = 0x02;
         cmd_ack[3] = 0x00;
@@ -648,14 +655,15 @@ esp_ble_ota_ext_advertise(void)
 
     /* enable connectable advertising */
     params.connectable = 1;
+    params.scannable = 1;
 
     /* advertise using random addr */
     params.own_addr_type = BLE_OWN_ADDR_PUBLIC;
 
     params.primary_phy = BLE_HCI_LE_PHY_1M;
-    params.secondary_phy = BLE_HCI_LE_PHY_2M;
-    //params.tx_power = 127;
+    params.secondary_phy = BLE_HCI_LE_PHY_1M;
     params.sid = 1;
+    params.legacy_pdu = 1;
 
     params.itvl_min = BLE_GAP_ADV_FAST_INTERVAL1_MIN;
     params.itvl_max = BLE_GAP_ADV_FAST_INTERVAL1_MIN;

@@ -5,6 +5,8 @@
  */
 
 #include "soc/soc_caps.h"
+
+#if SOC_MIPI_DSI_SUPPORTED
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -194,8 +196,8 @@ static esp_err_t panel_ek79007_del(esp_lcd_panel_t *panel)
     }
     // Delete MIPI DPI panel
     ek79007->del(panel);
-    free(ek79007);
     ESP_LOGD(TAG, "del ek79007 panel @%p", ek79007);
+    free(ek79007);
 
     return ESP_OK;
 }
@@ -274,3 +276,4 @@ static esp_err_t panel_ek79007_invert_color(esp_lcd_panel_t *panel, bool invert_
 
     return ESP_OK;
 }
+#endif

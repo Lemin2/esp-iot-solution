@@ -14,3 +14,6 @@ Sensors
     Gesture sensor <gesture>
     NTC Sensor<ntc_driver>
     Power Monitor<power_monitor>
+    Power Measure<power_measure>
+    Battery Fuel Gauge<battery_fuel_gauge>
+    ADC Sensor<adc>
